@@ -40,8 +40,35 @@ for sentence in reviews:
 sentence_vectors = np.asarray(sentence_vectors)
 
 #%%
+# Extracting TF_IDF features for each review
+N = 1000 # total number of reviews
+feature = np.zeros([1000,200])
+df = np.sum(sentence_vectors,axis=0) # number of reviews containing the respective frequent word
+for i in range(1000):
+    for j in range(200):
+        feature[i, j] = (float)(sentence_vectors[i,j]*np.log(N/df[j]))
 
+#%%
+def pca(data, k):
+    def eigen_sort(value, vector):
+        idx = value.argsort()[::-1]
+        eigenValues = value[idx]
+        eigenVectors = vector[:,idx]
+        return (eigenValues, eigenVectors)
 
+    def final_projection(eigen_matrix, x, k):
+        u = eigen_matrix[:, :k]
+        y = np.matmul(x, u)
+        return y
 
+    cov_data = np.cov(np.transpose(data))
+    eig_val, eig_vector = np.linalg.eig(cov_data)
+    eig_vals,eig_vectors=eigen_sort(eig_val,eig_vector)
 
+    return final_projection(eig_vectors,data,k)
+
+# Reducing our data to have 10 Dimensions using PCA
+new_feature = pca(feature, 10)
+
+#%%
 
