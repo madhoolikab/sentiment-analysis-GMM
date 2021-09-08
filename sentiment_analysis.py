@@ -1,16 +1,19 @@
 import nltk
 import heapq
 import numpy as np
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+from scipy.stats import multivariate_normal
 
 #%%
 f=open('./data/movieReviews1000.txt',"r")
 text=f.readlines()
   
-labels = []
+orig_labels = []
 reviews = []
 for line in text:
     review, label = line.split('\t')
-    labels.append(int(label.strip()))
+    orig_labels.append(int(label.strip()))
     reviews.append(review.strip())
 
 #%%
@@ -69,6 +72,114 @@ def pca(data, k):
 
 # Reducing our data to have 10 Dimensions using PCA
 new_feature = pca(feature, 10)
+
+#%%
+# Gaussian Mixture Models (2 centres)
+#finding initial centres for the kernels 
+kmeans = KMeans(n_clusters=2, random_state=0).fit(new_feature)
+labels = kmeans.labels_
+cluster_centers = kmeans.cluster_centers_
+
+mean1 = cluster_centers[0, :]
+mean2 = cluster_centers[1, :]
+mean_list = [mean1, mean2]
+
+def ClusterIndicesNumpy(clustNum, labels_array): #numpy 
+    return np.where(labels_array == clustNum)[0]
+
+data1 = np.transpose(new_feature[ClusterIndicesNumpy(0, kmeans.labels_)])
+data2 = np.transpose(new_feature[ClusterIndicesNumpy(1, kmeans.labels_)])
+
+plt.figure()
+plt.scatter(data1[0,:],data1[1,:],c='c',label='Kmean',marker='o')
+plt.scatter(data2[0,:],data2[1,:],c='m',label='Kmean',marker='o')
+plt.grid(True)
+plt.legend(loc='upper right')
+
+cov1 = np.cov(data1)
+cov2 = np.cov(data2)
+cov_list = [cov1, cov2]
+
+alpha1 = data1.shape[1]/new_feature.shape[0] # fraction of negative reviews
+alpha2 = 1 - alpha1 # fraction of positive reviews
+alpha_list = [alpha1, alpha2]
+
+def likelihood(data_array_transposed, alpha_list, cov_list, mean_list):
+    j = len(alpha_list)
+    n = data_array_transposed.shape[1]
+    weighted_normal=[]
+    like = 0
+    for i in range(n):
+        for k in range(j):
+            weighted_normal.append(alpha_list[k]*(multivariate_normal.pdf(data_array_transposed[:, i], mean=mean_list[k], cov=cov_list[k])))
+        a = np.array(weighted_normal)
+        l = np.log(np.sum(a))
+        weighted_normal = []
+        like = like+l
+    return like
+
+cov1d = np.diag(np.diag(cov1))
+cov2d = np.diag(np.diag(cov2))
+covd_list = [cov1d, cov2d]
+L_initial = likelihood(np.transpose(new_feature), alpha_list, covd_list, mean_list)
+
+def maximization(data_array_transposed, alpha_list, cov_list, mean_list, f):
+    j = len(alpha_list)
+    n = data_array_transposed.shape[1]
+    m = data_array_transposed.shape[0]
+    weighted_normal = np.zeros((n, j))
+    gama = np.zeros((n,j))
+    for i in range(n):
+        for k in range(j):
+            x = (alpha_list[k]*(multivariate_normal.pdf(data_array_transposed[:,i], mean=mean_list[k], cov=cov_list[k])))
+            weighted_normal[i,k] = x
+    
+    denominator = np.sum(weighted_normal, axis=1) 
+    for i in range(n):
+        for k in range(j):
+            gama[i,k] = weighted_normal[i,k]/denominator[i]
+    mean_deviation_denomintor = np.sum(gama, axis=0)
+    alpha = mean_deviation_denomintor/n
+    #updated weights
+    alpha_list_updated=alpha.tolist()
+    
+    #mean calculation
+    #numerator
+    sum_mean = []
+    for k in range(j):
+        e = np.zeros(m)
+        for i in range(n):
+            v = (float)(gama[i, k])
+            if e.shape == data_array_transposed[0:m, i].shape:
+                e = e + v*data_array_transposed[:, i]
+            else:
+                print('gfs')
+        sum_mean.append(e)
+        
+    mean_sum = np.array(sum_mean)
+    mean_new = []
+    for k in range(j):
+        mean_new.append(mean_sum[k]/mean_deviation_denomintor[k])
+        
+    #standard dev
+    sum_mean1 = []
+    for k in range(j):
+        e = np.zeros([m, m])
+        for i in range(n):
+            v = (float)(gama[i, k])
+            e = e + v * np.outer(data_array_transposed[:,i] - mean_new[k], data_array_transposed[:,i] - mean_new[k])
+        sum_mean1.append(e)
+    
+    mean_sum1=np.array(sum_mean1)
+    
+    sd_new = []
+    for k in range(j):
+        if(f == 1):
+            sd_new.append(np.diag(np.diag(mean_sum1[k]/mean_deviation_denomintor[k])))
+        else:
+            sd_new.append(mean_sum1[k]/mean_deviation_denomintor[k])
+
+    return sd_new,mean_new,alpha_list_updated
 
 #%%
 
