@@ -90,6 +90,12 @@ def ClusterIndicesNumpy(clustNum, labels_array): #numpy
 data1 = np.transpose(new_feature[ClusterIndicesNumpy(0, kmeans.labels_)])
 data2 = np.transpose(new_feature[ClusterIndicesNumpy(1, kmeans.labels_)])
 
+tdata1 = np.transpose(new_feature[ClusterIndicesNumpy(0, np.array(orig_labels))])
+tdata2 = np.transpose(new_feature[ClusterIndicesNumpy(1, np.array(orig_labels))])
+
+tdata1=np.transpose(tdata1)
+tdata2=np.transpose(tdata2)
+
 plt.figure()
 plt.scatter(data1[0,:],data1[1,:],c='c',label='Kmean',marker='o')
 plt.scatter(data2[0,:],data2[1,:],c='m',label='Kmean',marker='o')
@@ -256,4 +262,21 @@ while(1):
         mean_diag = mean_updated
         alpha_diag = alpha_list_updated1
         break
+
+#%%
+s = "Number of Iteration ="+str(i-1)
+plt.figure()
+plt.plot(iteration_diagonal, likelihood_diagonal, marker='*', c='g', label=s)
+plt.xlabel("Iteration")
+plt.ylabel("Log Likelihood")
+plt.legend(loc='upper right')
+plt.title("Number Of Gaussian=2, Train Data, Diagonal Covariance")
+plt.show()
+
+#classification
+c1, c2 = classification(sd_updated, alpha_list_updated1, mean_updated, tdata1)
+k1, k2 = classification(sd_updated, alpha_list_updated1, mean_updated, tdata2)
+
+accuracy=(len(c2)+len(k1))/1000
+print("The classification Accuracy is {}".format (accuracy))
 
