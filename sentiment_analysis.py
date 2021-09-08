@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 from scipy.stats import multivariate_normal
 
 #%%
-f=open('./data/movieReviews1000.txt',"r")
-text=f.readlines()
+f = open('./data/movieReviews1000.txt',"r")
+text = f.readlines()
   
 orig_labels = []
 reviews = []
@@ -182,4 +182,78 @@ def maximization(data_array_transposed, alpha_list, cov_list, mean_list, f):
     return sd_new,mean_new,alpha_list_updated
 
 #%%
+def classification(sigma, alpha, mean_, data):
+    n = data.shape[0]
+    data_transposed = np.transpose(data)
+    data0 = []
+    data1 = []
+    for i in range(n):
+        w0 = multivariate_normal.pdf(data_transposed[:,i], mean=mean_[0], cov=sigma[0])
+        w1 = multivariate_normal.pdf(data_transposed[:,i], mean=mean_[1], cov=sigma[1])
+        if np.log(w0) >= np.log(w1):
+            data0.append(data_transposed[:, i])
+        else:
+            data1.append(data_transposed[:, i])
+    
+    return data0, data1
+
+#%%
+def plot(sigma, alpha, mean_, data, j):
+    data_transposed = np.transpose(data)
+    data1 = []
+    data2 = []
+    for i in range(1000):
+        w1 = multivariate_normal.pdf(data_transposed[:,i],mean=mean_[0],cov=sigma[0])
+        w2 = multivariate_normal.pdf(data_transposed[:,i],mean=mean_[1],cov=sigma[1])
+        if np.log(w1) >= np.log(w2):
+            data1.append(data_transposed[:,i])
+        else:
+            data2.append(data_transposed[:,i])
+    s = "EM Iteration =" + str(j)
+    data1 = np.array(data1)
+    data2 = np.array(data2)
+    plt.figure()
+    plt.scatter(data1[:,0],data1[:,1],c='c',marker='o',label=s)
+    plt.scatter(data2[:,0],data2[:,1],c='m',marker='o',label=s)
+    plt.scatter(mean_[0][0],mean_[0][1],c='k',marker='D',label="Mean(Blue Dots)",s=100)
+    plt.scatter(mean_[1][0],mean_[1][1],c='y',marker='D',label="Mean(Purple Dots)",s=100)
+    plt.grid(True)
+    plt.legend(loc='upper right')    
+
+#%%
+i = 1
+iteration_diagonal = [1]
+likelihood_diagonal = [L_initial]
+k = [1]
+sd_updated, mean_updated, alpha_list_updated1 = maximization(np.transpose(new_feature),alpha_list,covd_list,mean_list,1)
+
+sigma_diag = []
+mean_diag = []
+alpha_diag = []
+while(1):
+    check = 0
+    sd_updated,mean_updated,alpha_list_updated1 = maximization(np.transpose(new_feature),alpha_list_updated1,sd_updated,mean_updated,1)
+    L1 = likelihood(np.transpose(new_feature), alpha_list_updated1, sd_updated, mean_updated)
+    plot(sd_updated, alpha_list_updated1, mean_updated, new_feature, i)
+    i = i+1
+    iteration_diagonal.append(i)
+    likelihood_diagonal.append(L1)
+    diff = (likelihood_diagonal[i-1]-likelihood_diagonal[i-2])
+    if i >= 10:
+        for x in range(i,i-10,-1):
+            diff1 = (likelihood_diagonal[x-1]-likelihood_diagonal[x-2])
+            if diff1 <= 1:
+                check += 1
+        if check == 9:
+            sigma_diag = sd_updated
+            mean_diag = mean_updated
+            alpha_diag = alpha_list_updated1
+            break
+        else:
+            check = 0
+    if i >= 15:
+        sigma_diag = sd_updated
+        mean_diag = mean_updated
+        alpha_diag = alpha_list_updated1
+        break
 
